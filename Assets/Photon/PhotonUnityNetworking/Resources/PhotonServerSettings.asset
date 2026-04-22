@@ -67,6 +67,7 @@ MonoBehaviour:
   - RPC_UpdatePlayerStats
   - RPC_SyncPlayerStats
   - RPC_SetCrouchState
+  - RPC_TriggerWeaponAnimation
   DisableAutoOpenWizard: 1
   ShowSettings: 0
   DevRegionSetOnce: 1

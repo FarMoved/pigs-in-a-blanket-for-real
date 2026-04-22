@@ -7,6 +7,14 @@ using Photon.Pun;
 /// </summary>
 public abstract class WeaponBase : MonoBehaviourPunCallbacks
 {
+    public enum WeaponAnimationType
+    {
+        Fire = 0,
+        Reload = 1,
+        Equip = 2,
+        Inspect = 3
+    }
+
     [Header("Weapon Info")]
     [SerializeField] protected string weaponName;
     [SerializeField] protected WeaponSlot weaponSlot;
@@ -33,9 +41,20 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
     [SerializeField] protected Transform muzzlePoint;
     [SerializeField] protected ParticleSystem muzzleFlash;
 
+    [Header("Animation")]
+    [SerializeField] protected Animator weaponAnimator;
+    [SerializeField] protected string fireTriggerName = "Fire";
+    [SerializeField] protected string reloadTriggerName = "Reload";
+    [SerializeField] protected string equipTriggerName = "Equip";
+    [SerializeField] protected string inspectTriggerName = "Inspect";
+    [SerializeField] protected KeyCode inspectKey = KeyCode.V;
+    [SerializeField] protected float inspectCooldown = 1.25f;
+
     // State
     protected bool isReloading = false;
+    protected bool isInspecting = false;
     protected float nextFireTime = 0f;
+    protected float nextInspectTime = 0f;
     protected AudioSource audioSource;
 
     // Events
@@ -62,6 +81,11 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
         {
             audioSource = gameObject.AddComponent<AudioSource>();
         }
+
+        if (weaponAnimator == null)
+        {
+            weaponAnimator = GetComponentInChildren<Animator>();
+        }
     }
 
     protected virtual void Start()
@@ -77,6 +101,11 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
     public virtual void HandleInput()
     {
         if (isReloading) return;
+
+        if (Input.GetKeyDown(inspectKey) && Time.time >= nextInspectTime)
+        {
+            StartInspect();
+        }
 
         // Fire input
         bool fireInput = isAutomatic ? Input.GetButton("Fire1") : Input.GetButtonDown("Fire1");
@@ -122,6 +151,7 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
         {
             muzzleFlash.Play();
         }
+        PlayAnimation(WeaponAnimationType.Fire);
 
         // Perform the actual attack (implemented by derived classes)
         PerformAttack();
@@ -154,6 +184,7 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
         {
             muzzleFlash.Play();
         }
+        PlayAnimation(WeaponAnimationType.Fire);
     }
 
     /// <summary>
@@ -166,6 +197,8 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
         isReloading = true;
         OnStartReload?.Invoke();
         PlaySound(reloadSound);
+        PlayAnimation(WeaponAnimationType.Reload);
+        SyncAnimationToOthers(WeaponAnimationType.Reload);
 
         Invoke(nameof(FinishReload), reloadTime);
     }
@@ -214,6 +247,8 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
         gameObject.SetActive(true);
         CancelInvoke(nameof(FinishReload));
         isReloading = false;
+        isInspecting = false;
+        PlayAnimation(WeaponAnimationType.Equip);
     }
 
     /// <summary>
@@ -223,7 +258,84 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
     {
         CancelInvoke(nameof(FinishReload));
         isReloading = false;
+        isInspecting = false;
         gameObject.SetActive(false);
+    }
+
+    /// <summary>
+    /// Starts a short inspect animation for local polish.
+    /// </summary>
+    protected virtual void StartInspect()
+    {
+        if (isReloading || isInspecting) return;
+
+        isInspecting = true;
+        nextInspectTime = Time.time + inspectCooldown;
+        PlayAnimation(WeaponAnimationType.Inspect);
+        SyncAnimationToOthers(WeaponAnimationType.Inspect);
+        Invoke(nameof(EndInspect), Mathf.Max(0.1f, inspectCooldown * 0.75f));
+    }
+
+    private void EndInspect()
+    {
+        isInspecting = false;
+    }
+
+    /// <summary>
+    /// Called by WeaponManager RPC so remote players can see weapon animation cues.
+    /// </summary>
+    public void PlayAnimationFromNetwork(WeaponAnimationType animationType)
+    {
+        PlayAnimation(animationType);
+    }
+
+    protected virtual void PlayAnimation(WeaponAnimationType animationType)
+    {
+        if (weaponAnimator == null) return;
+
+        string triggerName = GetTriggerForAnimation(animationType);
+        if (string.IsNullOrWhiteSpace(triggerName)) return;
+
+        ResetTriggerIfValid(fireTriggerName);
+        ResetTriggerIfValid(reloadTriggerName);
+        ResetTriggerIfValid(equipTriggerName);
+        ResetTriggerIfValid(inspectTriggerName);
+        weaponAnimator.SetTrigger(triggerName);
+    }
+
+    private void ResetTriggerIfValid(string triggerName)
+    {
+        if (!string.IsNullOrWhiteSpace(triggerName))
+        {
+            weaponAnimator.ResetTrigger(triggerName);
+        }
+    }
+
+    private string GetTriggerForAnimation(WeaponAnimationType animationType)
+    {
+        switch (animationType)
+        {
+            case WeaponAnimationType.Fire:
+                return fireTriggerName;
+            case WeaponAnimationType.Reload:
+                return reloadTriggerName;
+            case WeaponAnimationType.Equip:
+                return equipTriggerName;
+            case WeaponAnimationType.Inspect:
+                return inspectTriggerName;
+            default:
+                return string.Empty;
+        }
+    }
+
+    protected void SyncAnimationToOthers(WeaponAnimationType animationType)
+    {
+        PhotonView playerView = GetComponentInParent<PhotonView>();
+        WeaponManager wm = GetComponentInParent<WeaponManager>();
+        if (playerView == null || wm == null) return;
+
+        int slot = wm.GetSlotForWeapon(this);
+        playerView.RPC("RPC_TriggerWeaponAnimation", RpcTarget.Others, slot, (int)animationType);
     }
 
     /// <summary>

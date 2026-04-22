@@ -205,6 +205,18 @@ public class WeaponManager : MonoBehaviourPunCallbacks
     }
 
     /// <summary>
+    /// Called by WeaponBase so remote clients can play reload/inspect/equip animations.
+    /// </summary>
+    [PunRPC]
+    private void RPC_TriggerWeaponAnimation(int slot, int animationType)
+    {
+        if (weapons != null && weapons.ContainsKey(slot) && weapons[slot] != null)
+        {
+            weapons[slot].PlayAnimationFromNetwork((WeaponBase.WeaponAnimationType)animationType);
+        }
+    }
+
+    /// <summary>
     /// Returns the slot index (0-3) for the given weapon, or 0 if not found.
     /// </summary>
     public int GetSlotForWeapon(WeaponBase weapon)

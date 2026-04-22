@@ -17,15 +17,23 @@ public class CameraCollisionHandler : MonoBehaviour
     [SerializeField] private float rayOriginHeight = 0.5f;
     [Tooltip("Extra distance to keep from walls. Automatically at least the camera near clip plane.")]
     [SerializeField] private float clipMargin = 0.05f;
+    [Tooltip("Minimum wall clearance even when near clip is tiny.")]
+    [SerializeField] private float minWallClearance = 0.08f;
     [Tooltip("Radius for sphere cast (more reliable than a thin ray).")]
     [SerializeField] private float castRadius = 0.12f;
     [Tooltip("Layers to check for collision.")]
     [SerializeField] private LayerMask collisionLayers = -1;
-
+    [Header("Distance Smoothing")]
+    [Tooltip("How fast camera moves inward when obstruction appears.")]
+    [SerializeField] private float obstructionPullSpeed = 20f;
+    [Tooltip("How fast camera returns outward when obstruction clears.")]
+    [SerializeField] private float obstructionReleaseSpeed = 12f;
     private Transform cameraHolder;
+    private Transform playerRoot;
     private Vector3 defaultLocalPos;
     private Camera cam;
     private PhotonView photonView;
+    private float smoothedDistance = -1f;
 
     private void Awake()
     {
@@ -33,6 +41,8 @@ public class CameraCollisionHandler : MonoBehaviour
         cameraHolder = transform.parent;
         if (cameraHolder != null)
             defaultLocalPos = transform.localPosition;
+        if (cameraHolder != null)
+            playerRoot = cameraHolder.parent;
         photonView = GetComponentInParent<PhotonView>();
     }
 
@@ -58,18 +68,15 @@ public class CameraCollisionHandler : MonoBehaviour
 
         direction /= distance;
 
-        // Stay well back from walls so the near clip plane never cuts into geometry (no see-through).
-        // Use a fixed minimum distance so blocks never look translucent.
-        float minSafeMargin = Mathf.Max(0.75f, cam.nearClipPlane * 2.5f);
+        // Keep enough room for near clip without aggressively pushing camera around.
+        float minSafeMargin = Mathf.Max(minWallClearance, cam.nearClipPlane * 1.15f);
         float effectiveMargin = Mathf.Max(clipMargin, minSafeMargin);
 
         RaycastHit[] hits = Physics.SphereCastAll(origin, castRadius, direction, distance, collisionLayers);
         float closestHitDistance = float.MaxValue;
         foreach (RaycastHit hit in hits)
         {
-            if (photonView != null && hit.collider.GetComponentInParent<PhotonView>() == photonView)
-                continue;
-            if (hit.collider.transform == transform || hit.collider.transform.IsChildOf(transform))
+            if (IsSelfCollider(hit.collider))
                 continue;
             if (hit.distance < closestHitDistance)
                 closestHitDistance = hit.distance;
@@ -116,9 +123,7 @@ public class CameraCollisionHandler : MonoBehaviour
                 {
                     if (Physics.SphereCast(cameraPos, castRadius * 0.5f, dir, out RaycastHit viewHit, effectiveMargin * 3f, collisionLayers))
                     {
-                        if (viewHit.collider.transform == transform || viewHit.collider.transform.IsChildOf(transform))
-                            continue;
-                        if (photonView != null && viewHit.collider.GetComponentInParent<PhotonView>() == photonView)
+                        if (IsSelfCollider(viewHit.collider))
                             continue;
                         // Require full margin + small buffer so the near plane never clips into the block
                         float requiredDist = effectiveMargin * 1.15f;
@@ -137,6 +142,27 @@ public class CameraCollisionHandler : MonoBehaviour
             }
         }
 
-        transform.position = cameraPos;
+        float targetDistance = Mathf.Clamp(Vector3.Dot(cameraPos - origin, direction), 0f, distance);
+        if (smoothedDistance < 0f)
+            smoothedDistance = targetDistance;
+
+        bool gettingCloser = targetDistance < smoothedDistance;
+        float speed = gettingCloser ? Mathf.Max(0.01f, obstructionPullSpeed) : Mathf.Max(0.01f, obstructionReleaseSpeed);
+        smoothedDistance = Mathf.MoveTowards(smoothedDistance, targetDistance, speed * Time.deltaTime);
+
+        transform.position = origin + direction * smoothedDistance;
+    }
+
+    private bool IsSelfCollider(Collider col)
+    {
+        if (col == null) return false;
+        Transform t = col.transform;
+        if (t == transform || t.IsChildOf(transform))
+            return true;
+        if (playerRoot != null && (t == playerRoot || t.IsChildOf(playerRoot)))
+            return true;
+        if (photonView != null && col.GetComponentInParent<PhotonView>() == photonView)
+            return true;
+        return false;
     }
 }
