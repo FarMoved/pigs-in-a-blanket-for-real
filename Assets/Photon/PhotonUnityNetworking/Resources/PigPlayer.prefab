@@ -515,10 +515,19 @@ MonoBehaviour:
   gravity: -32
   crouchHeightPercent: 0.6
   crouchSpeedMultiplier: 0.5
+  standingHitboxScale: 0.58
+  crouchHitboxScale: 0.36
+  standingHeadTopPadding: 0.02
+  crouchVisualScaleY: 0.8
+  crouchVisualDrop: 0.12
+  crouchTransitionSpeed: 12
   mouseSensitivity: 2
   maxLookAngle: 85
   cameraHolder: {fileID: 2196507924802132958}
   characterController: {fileID: 1968493823983116432}
+  hitboxCollider: {fileID: 0}
+  visualModelRoot: {fileID: 0}
+  headTransform: {fileID: 0}
 --- !u!114 &7445118520062417350
 MonoBehaviour:
   m_ObjectHideFlags: 0
