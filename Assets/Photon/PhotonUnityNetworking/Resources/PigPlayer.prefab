@@ -610,6 +610,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3007376951258186539}
   - component: {fileID: 3054674086007402342}
+  - component: {fileID: 3456789012345678902}
   m_Layer: 0
   m_Name: SpatulaSlapper
   m_TagString: Untagged
@@ -661,7 +662,7 @@ MonoBehaviour:
   emptySound: {fileID: 0}
   muzzlePoint: {fileID: 0}
   muzzleFlash: {fileID: 0}
-  weaponAnimator: {fileID: 0}
+  weaponAnimator: {fileID: 3456789012345678902}
   fireTriggerName: Fire
   reloadTriggerName: Reload
   equipTriggerName: Equip
@@ -675,6 +676,27 @@ MonoBehaviour:
   swingSound: {fileID: 0}
   hitSound: {fileID: 0}
   hitEffectPrefab: {fileID: 0}
+--- !u!95 &3456789012345678902
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2090890602389010662}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: b2c2d3e4f5a6789012345678abcdef02, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &2466267561912882606
 GameObject:
   m_ObjectHideFlags: 0
@@ -779,6 +801,7 @@ GameObject:
   m_Component:
   - component: {fileID: 834731451225720473}
   - component: {fileID: 4320434515238525987}
+  - component: {fileID: 3456789012345678903}
   m_Layer: 0
   m_Name: CondimentCluster
   m_TagString: Untagged
@@ -830,7 +853,7 @@ MonoBehaviour:
   emptySound: {fileID: 0}
   muzzlePoint: {fileID: 0}
   muzzleFlash: {fileID: 0}
-  weaponAnimator: {fileID: 0}
+  weaponAnimator: {fileID: 3456789012345678903}
   fireTriggerName: Fire
   reloadTriggerName: Reload
   equipTriggerName: Equip
@@ -843,6 +866,27 @@ MonoBehaviour:
   fuseTime: 3
   explosionRadius: 5
   clusterCount: 5
+--- !u!95 &3456789012345678903
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3041012946948102258}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: b3c2d3e4f5a6789012345678abcdef03, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &3812261584608556838
 GameObject:
   m_ObjectHideFlags: 0
@@ -1321,6 +1365,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5294222733853239976}
   - component: {fileID: 4572827763335561046}
+  - component: {fileID: 3456789012345678901}
   m_Layer: 0
   m_Name: KetchupPistol
   m_TagString: Untagged
@@ -1372,7 +1417,7 @@ MonoBehaviour:
   emptySound: {fileID: 0}
   muzzlePoint: {fileID: 0}
   muzzleFlash: {fileID: 0}
-  weaponAnimator: {fileID: 0}
+  weaponAnimator: {fileID: 3456789012345678901}
   fireTriggerName: Fire
   reloadTriggerName: Reload
   equipTriggerName: Equip
@@ -1383,3 +1428,24 @@ MonoBehaviour:
   bloodSplatPrefab: {fileID: 0}
   bulletTrail: {fileID: 0}
   trailDuration: 0.1
+--- !u!95 &3456789012345678901
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9173053087659080715}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: b1c2d3e4f5a6789012345678abcdef01, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

@@ -82,9 +82,18 @@ public class CondimentCluster : WeaponBase
 
         // Play effects
         PlaySound(fireSound);
+        PlayAnimation(WeaponAnimationType.Fire);
 
         // Throw the grenade
         PerformAttack();
+
+        PhotonView playerView = GetComponentInParent<PhotonView>();
+        WeaponManager wm = GetComponentInParent<WeaponManager>();
+        if (playerView != null && wm != null)
+        {
+            int slot = wm.GetSlotForWeapon(this);
+            playerView.RPC("RPC_FireEffect", RpcTarget.Others, slot);
+        }
 
         // Update UI
         OnAmmoChanged?.Invoke(currentAmmo, reserveAmmo);

@@ -56,6 +56,11 @@ public class SpatulaSlapper : WeaponBase
     {
         if (isSwinging) return;
 
+        if (Input.GetKeyDown(inspectKey) && Time.time >= nextInspectTime)
+        {
+            StartInspect();
+        }
+
         if (Input.GetButtonDown("Fire1") && Time.time >= nextFireTime)
         {
             Fire();
@@ -70,6 +75,8 @@ public class SpatulaSlapper : WeaponBase
     protected override void Fire()
     {
         nextFireTime = Time.time + fireRate;
+        PlayAnimation(WeaponAnimationType.Fire);
+        SyncAnimationToOthers(WeaponAnimationType.Fire);
         PerformAttack();
     }
 
@@ -182,6 +189,7 @@ public class SpatulaSlapper : WeaponBase
     public void PlaySwingEffectForRemote()
     {
         PlaySound(swingSound);
+        PlayAnimation(WeaponAnimationType.Fire);
         StartCoroutine(SwingAnimation());
     }
 
