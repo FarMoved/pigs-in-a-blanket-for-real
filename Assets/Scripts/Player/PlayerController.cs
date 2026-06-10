@@ -27,6 +27,7 @@ public class PlayerController : MonoBehaviourPunCallbacks
     [Header("Look Settings")]
     [SerializeField] private float mouseSensitivity = 2f;
     [SerializeField] private float maxLookAngle = 85f;
+    private bool invertY;
 
     [Header("Movement Ability Prototypes")]
     [SerializeField] private bool enableSizzleStep = true;
@@ -91,6 +92,9 @@ public class PlayerController : MonoBehaviourPunCallbacks
         // Only control the local player
         if (photonView.IsMine)
         {
+            GameSettings.Load();
+            ApplyGameSettings();
+
             // Lock and hide cursor for FPS controls
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -192,6 +196,8 @@ public class PlayerController : MonoBehaviourPunCallbacks
     {
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        if (invertY)
+            mouseY = -mouseY;
 
         // Horizontal rotation - rotate the whole player
         transform.Rotate(Vector3.up * mouseX);
@@ -448,6 +454,22 @@ public class PlayerController : MonoBehaviourPunCallbacks
     public void SetInputEnabled(bool enabled)
     {
         this.enabled = enabled;
+    }
+
+    public void ApplyGameSettings()
+    {
+        mouseSensitivity = GameSettings.MouseSensitivity;
+        invertY = GameSettings.InvertY;
+    }
+
+    public void SetMouseSensitivity(float value)
+    {
+        mouseSensitivity = Mathf.Clamp(value, 0.5f, 10f);
+    }
+
+    public void SetInvertY(bool value)
+    {
+        invertY = value;
     }
 
     /// <summary>

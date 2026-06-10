@@ -86,7 +86,14 @@ public class HUDController : MonoBehaviour
         {
             gameManager.OnTimerUpdated += UpdateTimer;
             gameManager.OnScoreUpdated += UpdateScore;
+            gameManager.OnGameStateChanged += OnGameStateChanged;
         }
+
+        EnsureKillFeedContainer();
+        ApplyKillFeedSetting();
+
+        if (gameManager != null)
+            OnGameStateChanged(gameManager.CurrentState);
 
         // Hide panels initially
         if (countdownText != null)
@@ -113,8 +120,32 @@ public class HUDController : MonoBehaviour
     {
         if (gameManager == null)
             gameManager = FindObjectOfType<GameManager>();
-        if (gameManager != null && gameManager.CurrentState == GameState.Playing)
-            UpdateTimer(gameManager.MatchTimer);
+    }
+
+    private void OnGameStateChanged(GameState state)
+    {
+        if (gameManager == null) return;
+        switch (state)
+        {
+            case GameState.Playing:
+                UpdateTimer(gameManager.MatchTimer);
+                break;
+            case GameState.GameOver:
+                UpdateTimer(0f);
+                break;
+            case GameState.WaitingForPlayers:
+            case GameState.Countdown:
+                UpdateTimer(gameManager.MatchTimer > 0 ? gameManager.MatchTimer : 240f);
+                if (timerText != null)
+                    timerText.text = "--:--";
+                break;
+        }
+    }
+
+    public void ApplyKillFeedSetting()
+    {
+        if (killFeedContainer != null)
+            killFeedContainer.gameObject.SetActive(GameSettings.KillFeedEnabled);
     }
 
     private void EnsureHitIndicator()
@@ -573,31 +604,98 @@ public class HUDController : MonoBehaviour
     /// </summary>
     public void AddKillFeedEntry(string killerName, string victimName)
     {
+        if (!GameSettings.KillFeedEnabled) return;
+        EnsureKillFeedContainer();
         if (killFeedContainer == null || killFeedEntryPrefab == null) return;
 
-        // Create new entry
         GameObject entry = Instantiate(killFeedEntryPrefab, killFeedContainer);
+        entry.SetActive(true);
 
-        // Set text
         TextMeshProUGUI text = entry.GetComponentInChildren<TextMeshProUGUI>();
         if (text != null)
-        {
             text.text = $"{killerName} eliminated {victimName}";
-        }
 
-        // Add to queue and schedule removal
         killFeedEntries.Enqueue(entry);
-        Destroy(entry, killFeedEntryDuration);
+        StartCoroutine(RemoveKillFeedEntryAfterDelay(entry, killFeedEntryDuration));
 
-        // Remove oldest if too many
         while (killFeedEntries.Count > maxKillFeedEntries)
         {
             GameObject oldest = killFeedEntries.Dequeue();
             if (oldest != null)
-            {
                 Destroy(oldest);
-            }
         }
+    }
+
+    private System.Collections.IEnumerator RemoveKillFeedEntryAfterDelay(GameObject entry, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (entry != null)
+            Destroy(entry);
+    }
+
+    private void EnsureKillFeedContainer()
+    {
+        if (killFeedContainer != null && killFeedEntryPrefab != null) return;
+
+        Canvas rootCanvas = GetComponentInParent<Canvas>();
+        if (rootCanvas == null) rootCanvas = FindObjectOfType<Canvas>();
+        if (rootCanvas == null) return;
+
+        if (killFeedContainer == null)
+        {
+            var containerGo = new GameObject("KillFeedContainer");
+            containerGo.transform.SetParent(rootCanvas.transform, false);
+            containerGo.layer = rootCanvas.gameObject.layer;
+            var rect = containerGo.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(-16f, -88f);
+            rect.sizeDelta = new Vector2(300f, 200f);
+            var layout = containerGo.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperRight;
+            layout.spacing = 4f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            killFeedContainer = containerGo.transform;
+        }
+
+        if (killFeedEntryPrefab == null)
+        {
+            killFeedEntryPrefab = CreateKillFeedEntryPrefab();
+        }
+    }
+
+    private GameObject CreateKillFeedEntryPrefab()
+    {
+        var entry = new GameObject("KillFeedEntry");
+        var rect = entry.AddComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(280f, 28f);
+        var bg = entry.AddComponent<Image>();
+        bg.color = new Color(0.1f, 0.1f, 0.1f, 0.65f);
+        var textGo = new GameObject("Text");
+        textGo.transform.SetParent(entry.transform, false);
+        var textRect = textGo.AddComponent<RectTransform>();
+        StretchRect(textRect);
+        var tmp = textGo.AddComponent<TextMeshProUGUI>();
+        tmp.fontSize = 14;
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.Left;
+        tmp.margin = new Vector4(8f, 2f, 8f, 2f);
+        tmp.raycastTarget = false;
+        entry.transform.SetParent(transform, false);
+        entry.SetActive(false);
+        return entry;
+    }
+
+    private static void StretchRect(RectTransform rect)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
     }
 
     /// <summary>
@@ -696,6 +794,7 @@ public class HUDController : MonoBehaviour
         {
             gameManager.OnTimerUpdated -= UpdateTimer;
             gameManager.OnScoreUpdated -= UpdateScore;
+            gameManager.OnGameStateChanged -= OnGameStateChanged;
         }
 
         if (localPlayerHealth != null)

@@ -12,6 +12,7 @@ using System.Collections.Generic;
 /// </summary>
 public class ScoreboardUI : MonoBehaviourPunCallbacks
 {
+    public static bool IsScoreboardOpen { get; private set; }
     [Header("Scoreboard Panel")]
     [SerializeField] private GameObject scoreboardPanel;
     [SerializeField] private GameObject scoreboardBackdrop;
@@ -52,8 +53,9 @@ public class ScoreboardUI : MonoBehaviourPunCallbacks
         SubscribeToStats();
     }
 
-    private void OnEnable()
+    public override void OnEnable()
     {
+        base.OnEnable();
         SubscribeToStats();
     }
 
@@ -167,6 +169,7 @@ public class ScoreboardUI : MonoBehaviourPunCallbacks
 
     public void ShowScoreboard()
     {
+        IsScoreboardOpen = true;
         if (scoreboardBackdrop != null) scoreboardBackdrop.SetActive(true);
         if (scoreboardPanel != null)
         {
@@ -181,6 +184,7 @@ public class ScoreboardUI : MonoBehaviourPunCallbacks
 
     public void HideScoreboard()
     {
+        IsScoreboardOpen = false;
         if (scoreboardBackdrop != null) scoreboardBackdrop.SetActive(false);
         if (scoreboardPanel != null) scoreboardPanel.SetActive(false);
     }

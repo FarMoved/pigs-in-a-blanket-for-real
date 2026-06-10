@@ -76,6 +76,7 @@ public class WeaponManager : MonoBehaviourPunCallbacks
     {
         // Only process input for local player
         if (!photonView.IsMine) return;
+        if (SettingsOverlayController.BlocksGameplayInput) return;
 
         HandleWeaponSwitching();
 
