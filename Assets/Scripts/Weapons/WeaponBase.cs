@@ -102,7 +102,7 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
     {
         if (isReloading) return;
 
-        if (Input.GetKeyDown(inspectKey) && Time.time >= nextInspectTime)
+        if (GameKeybinds.GetKeyDown(KeybindId.Inspect) && Time.time >= nextInspectTime)
         {
             StartInspect();
         }
@@ -129,7 +129,7 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
         }
 
         // Reload input
-        if (Input.GetKeyDown(KeyCode.R) && currentAmmo < maxAmmo && reserveAmmo > 0 && !isReloading)
+        if (GameKeybinds.GetKeyDown(KeybindId.Reload) && currentAmmo < maxAmmo && reserveAmmo > 0 && !isReloading)
         {
             StartReload();
         }
@@ -246,6 +246,7 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
     {
         gameObject.SetActive(true);
         CancelInvoke(nameof(FinishReload));
+        CancelInvoke(nameof(EndInspect));
         isReloading = false;
         isInspecting = false;
         PlayAnimation(WeaponAnimationType.Equip);
@@ -257,6 +258,7 @@ public abstract class WeaponBase : MonoBehaviourPunCallbacks
     public virtual void OnUnequip()
     {
         CancelInvoke(nameof(FinishReload));
+        CancelInvoke(nameof(EndInspect));
         isReloading = false;
         isInspecting = false;
         gameObject.SetActive(false);

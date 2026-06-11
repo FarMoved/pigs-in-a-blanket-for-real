@@ -92,23 +92,14 @@ public class WeaponManager : MonoBehaviourPunCallbacks
     /// </summary>
     private void HandleWeaponSwitching()
     {
-        // Number keys
-        if (Input.GetKeyDown(KeyCode.Alpha1) && weapons.ContainsKey(0) && weapons[0] != null)
-        {
+        if (GameKeybinds.GetKeyDown(KeybindId.WeaponSlot1) && weapons.ContainsKey(0) && weapons[0] != null)
             SwitchWeapon(0);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha2) && weapons.ContainsKey(1) && weapons[1] != null)
-        {
+        else if (GameKeybinds.GetKeyDown(KeybindId.WeaponSlot2) && weapons.ContainsKey(1) && weapons[1] != null)
             SwitchWeapon(1);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha3) && weapons.ContainsKey(2) && weapons[2] != null)
-        {
+        else if (GameKeybinds.GetKeyDown(KeybindId.WeaponSlot3) && weapons.ContainsKey(2) && weapons[2] != null)
             SwitchWeapon(2);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha4) && weapons.ContainsKey(3) && weapons[3] != null)
-        {
+        else if (GameKeybinds.GetKeyDown(KeybindId.WeaponSlot4) && weapons.ContainsKey(3) && weapons[3] != null)
             SwitchWeapon(3);
-        }
 
         // Scroll wheel
         float scroll = Input.GetAxis("Mouse ScrollWheel");

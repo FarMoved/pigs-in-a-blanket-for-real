@@ -16,7 +16,6 @@ public class ScoreboardUI : MonoBehaviourPunCallbacks
     [Header("Scoreboard Panel")]
     [SerializeField] private GameObject scoreboardPanel;
     [SerializeField] private GameObject scoreboardBackdrop;
-    [SerializeField] private KeyCode toggleKey = KeyCode.Tab;
 
     [Header("Team Panels (blue top, red bottom)")]
     [SerializeField] private Transform blueTeamContainer;
@@ -138,11 +137,15 @@ public class ScoreboardUI : MonoBehaviourPunCallbacks
 
     private void Update()
     {
-        if (Input.GetKeyDown(toggleKey))
+        if (SettingsOverlayController.BlocksGameplayInput)
+            return;
+
+        KeyCode scoreboardKey = GameKeybinds.Get(KeybindId.Scoreboard);
+        if (scoreboardKey != KeyCode.None && Input.GetKeyDown(scoreboardKey))
         {
             ShowScoreboard();
         }
-        else if (Input.GetKeyUp(toggleKey))
+        else if (scoreboardKey != KeyCode.None && Input.GetKeyUp(scoreboardKey))
         {
             HideScoreboard();
         }

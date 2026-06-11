@@ -18,8 +18,6 @@ public class HUDController : MonoBehaviour
     [SerializeField] private Color criticalColor = Color.red;
     [Header("Health + Ability Layout")]
     [SerializeField] private float healthClusterLeftShift = 110f;
-    [SerializeField] private float abilityHudGapAboveHealth = 14f;
-    [SerializeField] private float abilityHudPanelHeight = 125f;
 
     [Header("Ammo Display")]
     [SerializeField] private TextMeshProUGUI ammoText;
@@ -74,6 +72,7 @@ public class HUDController : MonoBehaviour
     private WeaponBase currentWeaponForHud;
     private string lastAmmoDisplay = "0 / 0";
     private bool layoutApplied;
+    private AbilityHudUI abilityHudUI;
 
     // Kill feed tracking
     private Queue<GameObject> killFeedEntries = new Queue<GameObject>();
@@ -91,6 +90,8 @@ public class HUDController : MonoBehaviour
 
         EnsureKillFeedContainer();
         ApplyKillFeedSetting();
+
+        ApplyCrosshairSetting();
 
         if (gameManager != null)
             OnGameStateChanged(gameManager.CurrentState);
@@ -146,6 +147,26 @@ public class HUDController : MonoBehaviour
     {
         if (killFeedContainer != null)
             killFeedContainer.gameObject.SetActive(GameSettings.KillFeedEnabled);
+    }
+
+    public void ApplyCrosshairSetting()
+    {
+        if (crosshair == null) return;
+
+        CrosshairCatalog.EnsureInitialized();
+        CrosshairCatalog.Entry entry = CrosshairCatalog.Get(GameSettings.CrosshairIndex);
+        if (entry.Sprite == null) return;
+
+        crosshair.sprite = entry.Sprite;
+        crosshair.color = GameSettings.GetCrosshairColor();
+        crosshair.preserveAspect = true;
+        crosshair.raycastTarget = false;
+
+        RectTransform rect = crosshair.rectTransform;
+        if (rect != null)
+            rect.sizeDelta = entry.HudSize;
+
+        crosshair.enabled = true;
     }
 
     private void EnsureHitIndicator()
@@ -321,11 +342,7 @@ public class HUDController : MonoBehaviour
             }
         }
 
-        // Show crosshair when in game
-        if (crosshair != null)
-        {
-            crosshair.enabled = true;
-        }
+        ApplyCrosshairSetting();
 
         ApplyHealthAndAbilityLayout();
     }
@@ -348,18 +365,14 @@ public class HUDController : MonoBehaviour
             healthTextRect.anchoredPosition += Vector2.left * Mathf.Max(0f, healthClusterLeftShift);
         }
 
-        if (localPlayerHealth == null) return;
+        if (localPlayerHealth == null || healthRect == null) return;
         PlayerController localController = localPlayerHealth.GetComponent<PlayerController>();
-        if (localController == null || healthRect == null) return;
+        if (localController == null) return;
 
-        Vector3[] corners = new Vector3[4];
-        healthRect.GetWorldCorners(corners);
-        Vector3 topLeft = new Vector3(corners[1].x, corners[1].y, 0f);
-        Vector2 topLeftScreen = RectTransformUtility.WorldToScreenPoint(null, topLeft);
+        if (abilityHudUI == null)
+            abilityHudUI = gameObject.AddComponent<AbilityHudUI>();
 
-        float guiX = Mathf.Max(0f, topLeftScreen.x);
-        float guiYFromTop = Mathf.Max(0f, Screen.height - topLeftScreen.y - Mathf.Max(0f, abilityHudPanelHeight) - Mathf.Max(0f, abilityHudGapAboveHealth));
-        localController.SetAbilityDebugHudScreenOffset(new Vector2(guiX, guiYFromTop));
+        abilityHudUI.Setup(localController, healthText);
     }
 
     /// <summary>

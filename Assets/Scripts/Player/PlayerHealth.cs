@@ -199,6 +199,7 @@ public class PlayerHealth : MonoBehaviourPunCallbacks
         }
 
         OnRespawn?.Invoke();
+        PlayerOutlineHighlighter.RefreshAll();
 
         // Ensure death panel is hidden on this client (backup in case HUD subscription missed it)
         if (photonView.IsMine)

@@ -62,6 +62,8 @@ public class TeamManager : MonoBehaviourPunCallbacks
 
         OnLocalPlayerTeamAssigned?.Invoke(assignedTeam);
 
+        PlayerOutlineHighlighter.RefreshAll();
+
         Debug.Log($"Assigned to {assignedTeam} team (join order {myIndex + 1})");
     }
 
@@ -194,6 +196,7 @@ public class TeamManager : MonoBehaviourPunCallbacks
         if (changedProps.ContainsKey("Team"))
         {
             CountTeams();
+            PlayerOutlineHighlighter.RefreshAll();
             Debug.Log($"Player {targetPlayer.NickName} team updated. Red: {redTeamCount}, Blue: {blueTeamCount}");
         }
     }

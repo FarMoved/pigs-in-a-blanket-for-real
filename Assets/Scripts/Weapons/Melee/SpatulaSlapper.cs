@@ -49,14 +49,33 @@ public class SpatulaSlapper : WeaponBase
         }
     }
 
+    public override void OnEquip()
+    {
+        ResetSwingState();
+        base.OnEquip();
+    }
+
+    public override void OnUnequip()
+    {
+        ResetSwingState();
+        base.OnUnequip();
+    }
+
+    public override void OnDisable()
+    {
+        // Deactivating the weapon stops coroutines without running their cleanup.
+        ResetSwingState();
+        base.OnDisable();
+    }
+
     /// <summary>
     /// Override HandleInput since melee doesn't use ammo traditionally.
     /// </summary>
     public override void HandleInput()
     {
-        if (isSwinging) return;
+        if (isSwinging || isInspecting) return;
 
-        if (Input.GetKeyDown(inspectKey) && Time.time >= nextInspectTime)
+        if (GameKeybinds.GetKeyDown(KeybindId.Inspect) && Time.time >= nextInspectTime)
         {
             StartInspect();
         }
@@ -188,9 +207,20 @@ public class SpatulaSlapper : WeaponBase
     /// </summary>
     public void PlaySwingEffectForRemote()
     {
+        if (isSwinging) return;
+
         PlaySound(swingSound);
         PlayAnimation(WeaponAnimationType.Fire);
         StartCoroutine(SwingAnimation());
+    }
+
+    private void ResetSwingState()
+    {
+        StopAllCoroutines();
+        isSwinging = false;
+
+        if (spatulaModel != null)
+            spatulaModel.localRotation = originalRotation;
     }
 
     /// <summary>

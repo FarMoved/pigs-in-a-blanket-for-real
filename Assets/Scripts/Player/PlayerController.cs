@@ -33,9 +33,6 @@ public class PlayerController : MonoBehaviourPunCallbacks
     [SerializeField] private bool enableSizzleStep = true;
     [SerializeField] private bool enableWallSkim = true;
     [SerializeField] private bool enableLaunchPatty = false;
-    [SerializeField] private KeyCode sizzleStepKey = KeyCode.Q;
-    [SerializeField] private KeyCode wallSkimKey = KeyCode.E;
-    [SerializeField] private KeyCode launchPattyKey = KeyCode.F;
     [SerializeField] private float sizzleStepDistance = 7f;
     [SerializeField] private float sizzleStepCooldown = 2.25f;
     [SerializeField] private float wallSkimDuration = 2.1f;
@@ -52,9 +49,6 @@ public class PlayerController : MonoBehaviourPunCallbacks
     [SerializeField] private float launchPattyForwardBoost = 5.25f;
     [SerializeField] private float launchPattyCooldown = 4f;
     [SerializeField] private LayerMask wallSkimLayers = ~0;
-    [Header("Ability Debug HUD")]
-    [SerializeField] private bool showAbilityDebugHud = true;
-    [SerializeField] private Vector2 abilityDebugHudScreenOffset = new Vector2(20f, 170f);
 
     [Header("References")]
     [SerializeField] private Transform cameraHolder;
@@ -172,6 +166,9 @@ public class PlayerController : MonoBehaviourPunCallbacks
         {
             SetLocalCrouchProperty(false);
         }
+
+        if (GetComponent<PlayerOutlineHighlighter>() == null)
+            gameObject.AddComponent<PlayerOutlineHighlighter>();
     }
 
     private void Update()
@@ -185,8 +182,12 @@ public class PlayerController : MonoBehaviourPunCallbacks
         if (!photonView.IsMine) return;
 
         TickAbilityCooldowns();
-        HandleMouseLook();
-        HandleMovement();
+
+        bool inputBlocked = SettingsOverlayController.BlocksGameplayInput;
+        if (!inputBlocked)
+            HandleMouseLook();
+
+        HandleMovement(inputBlocked);
     }
 
     /// <summary>
@@ -215,7 +216,7 @@ public class PlayerController : MonoBehaviourPunCallbacks
     /// <summary>
     /// Handles WASD movement, sprinting, and jumping.
     /// </summary>
-    private void HandleMovement()
+    private void HandleMovement(bool inputBlocked)
     {
         if (characterController == null) return;
 
@@ -227,44 +228,48 @@ public class PlayerController : MonoBehaviourPunCallbacks
             velocity.y = -2f; // Small downward force to keep grounded
         }
 
-        // Crouch (Left Control) - hold to crouch; sync state to all clients.
-        bool wantCrouch = Input.GetKey(KeyCode.LeftControl);
-        if (wantCrouch != lastSentCrouchState)
+        if (!inputBlocked)
         {
-            lastSentCrouchState = wantCrouch;
-            ApplyCrouchState(wantCrouch);
-            SetLocalCrouchProperty(wantCrouch);
-            photonView.RPC(nameof(RPC_SetCrouchState), RpcTarget.Others, wantCrouch);
+            // Crouch (Left Control) - hold to crouch; sync state to all clients.
+            bool wantCrouch = Input.GetKey(KeyCode.LeftControl);
+            if (wantCrouch != lastSentCrouchState)
+            {
+                lastSentCrouchState = wantCrouch;
+                ApplyCrouchState(wantCrouch);
+                SetLocalCrouchProperty(wantCrouch);
+                photonView.RPC(nameof(RPC_SetCrouchState), RpcTarget.Others, wantCrouch);
+            }
+
+            // Get input
+            float horizontal = Input.GetAxis("Horizontal");
+            float vertical = Input.GetAxis("Vertical");
+            cachedMoveInput = new Vector2(horizontal, vertical);
+
+            // Calculate movement direction relative to player facing
+            Vector3 moveDirection = transform.right * horizontal + transform.forward * vertical;
+
+            // Sprint (only when not crouching) and crouch speed
+            float currentSpeed = walkSpeed;
+            if (isCrouching)
+                currentSpeed = walkSpeed * crouchSpeedMultiplier;
+            else if (Input.GetKey(KeyCode.LeftShift))
+                currentSpeed = sprintSpeed;
+
+            // Apply movement
+            characterController.Move(moveDirection * currentSpeed * Time.deltaTime);
+
+            TryActivateMovementAbilities(moveDirection);
+
+            // Jump
+            if (Input.GetButtonDown("Jump") && isGrounded)
+            {
+                velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
+            }
         }
 
-        // Get input
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
-        cachedMoveInput = new Vector2(horizontal, vertical);
-
-        // Calculate movement direction relative to player facing
-        Vector3 moveDirection = transform.right * horizontal + transform.forward * vertical;
-
-        // Sprint (only when not crouching) and crouch speed
-        float currentSpeed = walkSpeed;
-        if (isCrouching)
-            currentSpeed = walkSpeed * crouchSpeedMultiplier;
-        else if (Input.GetKey(KeyCode.LeftShift))
-            currentSpeed = sprintSpeed;
-
-        // Apply movement
-        characterController.Move(moveDirection * currentSpeed * Time.deltaTime);
-
-        TryActivateMovementAbilities(moveDirection);
         ApplyWallSkimMotion();
 
-        // Jump
-        if (Input.GetButtonDown("Jump") && isGrounded)
-        {
-            velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
-        }
-
-        // Apply gravity
+        // Apply gravity even while settings menu is open
         velocity.y += gravity * Time.deltaTime;
         characterController.Move(velocity * Time.deltaTime);
     }
@@ -296,7 +301,7 @@ public class PlayerController : MonoBehaviourPunCallbacks
     private void TryActivateSizzleStep(Vector3 moveDirection)
     {
         if (!enableSizzleStep || sizzleStepCooldownTimer > 0f) return;
-        if (!Input.GetKeyDown(sizzleStepKey)) return;
+        if (!GameKeybinds.GetKeyDown(KeybindId.SizzleStep)) return;
 
         Vector3 desiredDirection = moveDirection.sqrMagnitude > 0.01f
             ? moveDirection.normalized
@@ -309,7 +314,7 @@ public class PlayerController : MonoBehaviourPunCallbacks
     private void TryActivateWallSkim()
     {
         if (!enableWallSkim || wallSkimCooldownTimer > 0f) return;
-        if (!Input.GetKeyDown(wallSkimKey)) return;
+        if (!GameKeybinds.GetKeyDown(KeybindId.WallSkim)) return;
         if (isGrounded) return;
         if (!TryGetNearbyWallNormal(out Vector3 wallNormal)) return;
 
@@ -362,7 +367,7 @@ public class PlayerController : MonoBehaviourPunCallbacks
     private void TryActivateLaunchPatty()
     {
         if (!enableLaunchPatty || launchPattyCooldownTimer > 0f) return;
-        if (!Input.GetKeyDown(launchPattyKey)) return;
+        if (!GameKeybinds.GetKeyDown(KeybindId.LaunchPatty)) return;
         if (!isGrounded) return;
 
         float safeHeight = Mathf.Max(0f, launchPattyHeight);
@@ -401,51 +406,60 @@ public class PlayerController : MonoBehaviourPunCallbacks
         return false;
     }
 
-    private void OnGUI()
+    public enum AbilityId
     {
-        if (!showAbilityDebugHud || !photonView.IsMine) return;
+        SizzleStep,
+        WallSkim,
+        LaunchPatty
+    }
 
-        GUIStyle style = new GUIStyle(GUI.skin.box)
+    public struct AbilityHudInfo
+    {
+        public Sprite Icon;
+        public KeyCode Keybind;
+        public float CooldownRemaining;
+        public float CooldownDuration;
+    }
+
+    public bool IsAbilityEnabled(AbilityId abilityId)
+    {
+        switch (abilityId)
         {
-            alignment = TextAnchor.UpperLeft,
-            fontSize = 14,
-            richText = true
-        };
-
-        string sizzleState = enableSizzleStep
-            ? FormatCooldownState("Sizzle Step", sizzleStepCooldownTimer)
-            : "<color=#999999>Sizzle Step: OFF</color>";
-        string wallSkimState = enableWallSkim
-            ? $"{FormatCooldownState("Wall Skim", wallSkimCooldownTimer)}\nSkim Time Left: {Mathf.Max(0f, wallSkimTimer):0.00}s | Momentum: {wallSkimMomentumMultiplier:0.00}x"
-            : "<color=#999999>Wall Skim: OFF</color>";
-        string launchPattyState = enableLaunchPatty
-            ? FormatCooldownState("Launch Patty", launchPattyCooldownTimer)
-            : "<color=#999999>Launch Patty: OFF</color>";
-
-        string hudText =
-            "<b>Ability Debug</b>\n" +
-            $"{sizzleState}\n" +
-            $"{wallSkimState}\n" +
-            $"{launchPattyState}";
-
-        Rect panel = new Rect(
-            Mathf.Max(0f, abilityDebugHudScreenOffset.x),
-            Mathf.Max(0f, abilityDebugHudScreenOffset.y),
-            360f,
-            125f);
-        GUI.Box(panel, hudText, style);
+            case AbilityId.SizzleStep: return enableSizzleStep;
+            case AbilityId.WallSkim: return enableWallSkim;
+            case AbilityId.LaunchPatty: return enableLaunchPatty;
+            default: return false;
+        }
     }
 
-    private static string FormatCooldownState(string abilityName, float cooldownTimer)
+    public AbilityHudInfo GetAbilityHudInfo(AbilityId abilityId)
     {
-        if (cooldownTimer <= 0f)
-            return $"<color=#6CFF8C>{abilityName}: READY</color>";
-        return $"<color=#FFD36C>{abilityName}: {cooldownTimer:0.00}s</color>";
-    }
+        AbilityIconCatalog.EnsureInitialized();
+        var info = new AbilityHudInfo();
 
-    public void SetAbilityDebugHudScreenOffset(Vector2 newOffset)
-    {
-        abilityDebugHudScreenOffset = newOffset;
+        switch (abilityId)
+        {
+            case AbilityId.SizzleStep:
+                info.Icon = AbilityIconCatalog.Get(AbilityIconCatalog.AbilityIcon.SizzleStep);
+                info.Keybind = GameKeybinds.Get(KeybindId.SizzleStep);
+                info.CooldownRemaining = Mathf.Max(0f, sizzleStepCooldownTimer);
+                info.CooldownDuration = Mathf.Max(0f, sizzleStepCooldown);
+                break;
+            case AbilityId.WallSkim:
+                info.Icon = AbilityIconCatalog.Get(AbilityIconCatalog.AbilityIcon.WallSkim);
+                info.Keybind = GameKeybinds.Get(KeybindId.WallSkim);
+                info.CooldownRemaining = Mathf.Max(0f, wallSkimCooldownTimer);
+                info.CooldownDuration = Mathf.Max(0f, wallSkimCooldown);
+                break;
+            case AbilityId.LaunchPatty:
+                info.Icon = AbilityIconCatalog.Get(AbilityIconCatalog.AbilityIcon.LaunchPatty);
+                info.Keybind = GameKeybinds.Get(KeybindId.LaunchPatty);
+                info.CooldownRemaining = Mathf.Max(0f, launchPattyCooldownTimer);
+                info.CooldownDuration = Mathf.Max(0f, launchPattyCooldown);
+                break;
+        }
+
+        return info;
     }
 
     /// <summary>
@@ -460,6 +474,13 @@ public class PlayerController : MonoBehaviourPunCallbacks
     {
         mouseSensitivity = GameSettings.MouseSensitivity;
         invertY = GameSettings.InvertY;
+
+        if (cameraHolder != null)
+        {
+            Camera cam = cameraHolder.GetComponentInChildren<Camera>();
+            if (cam != null)
+                cam.fieldOfView = GameSettings.FieldOfView;
+        }
     }
 
     public void SetMouseSensitivity(float value)

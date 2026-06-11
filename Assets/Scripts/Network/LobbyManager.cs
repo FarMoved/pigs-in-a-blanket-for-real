@@ -127,6 +127,8 @@ public class LobbyManager : MonoBehaviourPunCallbacks
 
     private void OnConnectClicked()
     {
+        MatchSessionTracker.Clear();
+
         string playerName = playerNameInput != null ? playerNameInput.text : "";
 
         if (string.IsNullOrEmpty(playerName))

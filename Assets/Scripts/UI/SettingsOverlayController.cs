@@ -21,7 +21,6 @@ public class SettingsOverlayController : MonoBehaviour
 
     private bool isOpen;
     private bool isLeaveModalOpen;
-    private PlayerController localPlayerController;
 
     private GameObject[] tabPanels;
     private Button[] tabButtons;
@@ -81,6 +80,12 @@ public class SettingsOverlayController : MonoBehaviour
 
         if (ScoreboardUI.IsScoreboardOpen)
             return;
+
+        if (KeybindRebindController.Instance != null && KeybindRebindController.Instance.IsListening)
+        {
+            KeybindRebindController.Instance.CancelRebind();
+            return;
+        }
 
         if (isLeaveModalOpen)
         {
@@ -219,21 +224,6 @@ public class SettingsOverlayController : MonoBehaviour
 
         if (menuOpen)
             ClearSelection();
-
-        if (localPlayerController == null)
-            localPlayerController = FindLocalPlayerController();
-
-        if (localPlayerController != null)
-        {
-            bool enableInput = !menuOpen;
-            if (enableInput)
-            {
-                PlayerHealth health = GetLocalPlayerHealth();
-                if (health != null && health.IsDead)
-                    enableInput = false;
-            }
-            localPlayerController.SetInputEnabled(enableInput);
-        }
     }
 
     private void ClearSelection()
@@ -246,28 +236,6 @@ public class SettingsOverlayController : MonoBehaviour
     {
         GameManager gm = FindObjectOfType<GameManager>();
         return gm != null && gm.CurrentState == GameState.GameOver;
-    }
-
-    private PlayerController FindLocalPlayerController()
-    {
-        foreach (PhotonView pv in FindObjectsOfType<PhotonView>())
-        {
-            if (!pv.IsMine) continue;
-            PlayerController c = pv.GetComponent<PlayerController>();
-            if (c != null) return c;
-        }
-        return null;
-    }
-
-    private PlayerHealth GetLocalPlayerHealth()
-    {
-        foreach (PhotonView pv in FindObjectsOfType<PhotonView>())
-        {
-            if (!pv.IsMine) continue;
-            PlayerHealth h = pv.GetComponent<PlayerHealth>();
-            if (h != null) return h;
-        }
-        return null;
     }
 
     private void HideLegacyPauseMenu()

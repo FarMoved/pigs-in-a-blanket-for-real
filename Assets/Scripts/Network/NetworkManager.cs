@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Photon.Pun;
@@ -52,6 +53,35 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         PhotonNetwork.AutomaticallySyncScene = true;
     }
 
+    public override void OnEnable()
+    {
+        base.OnEnable();
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    public override void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        base.OnDisable();
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name != gameSceneName || !PhotonNetwork.InRoom)
+            return;
+
+        if (!MatchSessionTracker.CanPlayInGameScene())
+            return;
+
+        StartCoroutine(SpawnAfterSceneLoad());
+    }
+
+    private IEnumerator SpawnAfterSceneLoad()
+    {
+        yield return new WaitForSeconds(0.35f);
+        TrySpawnLocalPlayerIfNeeded();
+    }
+
     /// <summary>
     /// Connects to Photon servers.
     /// </summary>
@@ -65,9 +95,25 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
         isConnecting = true;
         PhotonNetwork.GameVersion = gameVersion;
+        PhotonNetwork.AuthValues = new AuthenticationValues(GetOrCreatePhotonUserId());
         PhotonNetwork.ConnectUsingSettings();
 
         Debug.Log("Connecting to Photon...");
+    }
+
+    private static string GetOrCreatePhotonUserId()
+    {
+        // Separate IDs per ParrelSync project folder so main + clone never share a Photon user.
+        string prefsKey = "PhotonUserId_" + Application.dataPath.GetHashCode();
+        string userId = PlayerPrefs.GetString(prefsKey, string.Empty);
+        if (string.IsNullOrEmpty(userId))
+        {
+            userId = System.Guid.NewGuid().ToString();
+            PlayerPrefs.SetString(prefsKey, userId);
+            PlayerPrefs.Save();
+        }
+
+        return userId;
     }
 
     /// <summary>
@@ -79,6 +125,9 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         {
             name = "Pig_" + Random.Range(1000, 9999);
         }
+
+        if (ParrelSyncUtil.IsClone() && !name.StartsWith("Clone_"))
+            name = "Clone_" + name;
 
         PhotonNetwork.NickName = name;
         PlayerPrefs.SetString("PlayerName", name);
@@ -136,6 +185,35 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     }
 
     /// <summary>
+    /// Spawns the local player once when entering the game scene.
+    /// </summary>
+    public void TrySpawnLocalPlayerIfNeeded()
+    {
+        if (!PhotonNetwork.InRoom)
+        {
+            Debug.LogWarning("Cannot spawn player: not in a Photon room.");
+            return;
+        }
+
+        if (SceneManager.GetActiveScene().name != gameSceneName)
+            return;
+
+        if (!MatchSessionTracker.CanPlayInGameScene())
+        {
+            Debug.LogWarning("Skipping player spawn — this editor did not join the match from the lobby.");
+            return;
+        }
+
+        if (HasLocalPlayer())
+        {
+            Debug.Log("Local player already exists — skipping spawn.");
+            return;
+        }
+
+        SpawnLocalPlayer();
+    }
+
+    /// <summary>
     /// Spawns the local player in the game.
     /// Should be called after joining a room and loading the game scene.
     /// </summary>
@@ -144,6 +222,12 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         if (playerPrefab == null && string.IsNullOrEmpty(playerPrefabName))
         {
             Debug.LogError("Player prefab not set!");
+            return;
+        }
+
+        if (!PhotonNetwork.InRoom)
+        {
+            Debug.LogWarning("Cannot spawn player: not in a Photon room.");
             return;
         }
 
@@ -175,6 +259,11 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         // Spawn player via Photon
         string prefabName = playerPrefab != null ? playerPrefab.name : playerPrefabName;
         GameObject player = PhotonNetwork.Instantiate(prefabName, spawnPosition, spawnRotation);
+        if (player == null)
+        {
+            Debug.LogError($"Failed to spawn player prefab '{prefabName}'. Is it in a Resources folder?");
+            return;
+        }
 
         Debug.Log($"Spawned local player at {spawnPosition}");
 
@@ -199,6 +288,18 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         }
     }
 
+    private static bool HasLocalPlayer()
+    {
+        foreach (PhotonView view in Object.FindObjectsOfType<PhotonView>())
+        {
+            if (!view.IsMine) continue;
+            if (view.GetComponent<PlayerController>() != null)
+                return true;
+        }
+
+        return false;
+    }
+
     #region Photon Callbacks
 
     public override void OnConnectedToMaster()
@@ -220,6 +321,8 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     public override void OnJoinedRoom()
     {
+        MatchSessionTracker.MarkJoinedRoomThroughLobby();
+
         Debug.Log($"Joined room: {PhotonNetwork.CurrentRoom.Name}");
         Debug.Log($"Players in room: {PhotonNetwork.CurrentRoom.PlayerCount}");
 
@@ -258,6 +361,8 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     public override void OnLeftRoom()
     {
+        MatchSessionTracker.Clear();
+
         Debug.Log("Left room");
         // Reset time scale and cursor so the lobby works (game may have been paused)
         Time.timeScale = 1f;
@@ -273,6 +378,8 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     public override void OnDisconnected(DisconnectCause cause)
     {
+        MatchSessionTracker.Clear();
+
         Debug.LogWarning($"Disconnected from Photon: {cause}");
         isConnecting = false;
     }

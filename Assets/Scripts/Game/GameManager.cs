@@ -116,7 +116,10 @@ public class GameManager : MonoBehaviourPunCallbacks
         float countdown = preMatchCountdown;
         while (countdown > 0)
         {
-            photonView.RPC("RPC_UpdateCountdown", RpcTarget.All, countdown);
+            if (photonView != null)
+                photonView.RPC(nameof(RPC_UpdateCountdown), RpcTarget.All, countdown);
+            else
+                RPC_UpdateCountdown(countdown);
             yield return new WaitForSeconds(1f);
             countdown--;
         }
@@ -143,7 +146,9 @@ public class GameManager : MonoBehaviourPunCallbacks
         };
         PhotonNetwork.CurrentRoom?.SetCustomProperties(startProps);
         if (photonView != null)
-            photonView.RPC("RPC_StartMatch", RpcTarget.All, matchTimer);
+            photonView.RPC(nameof(RPC_StartMatch), RpcTarget.All, matchTimer);
+        else
+            RPC_StartMatch(matchTimer);
     }
 
     /// <summary>
@@ -250,9 +255,7 @@ public class GameManager : MonoBehaviourPunCallbacks
         PhotonNetwork.CurrentRoom.SetCustomProperties(props);
         OnScoreUpdated?.Invoke(redTeamScore, blueTeamScore);
         if (OnPlayerStatsUpdated != null) OnPlayerStatsUpdated.Invoke();
-
-        // Also run kill feed/confirmation on master (room props are applied locally when we set them)
-        NotifyKillFromIds(attackerViewID, victimViewID);
+        // Kill feed is shown via OnRoomPropertiesUpdate (LastKill* keys) so all clients, including master, get one entry.
     }
 
     public int GetPlayerKills(int actorNumber)
